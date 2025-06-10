@@ -55,9 +55,9 @@ fi
 
 # Check if IMAGE_NAME image exists
 if ! docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
-    echo "$IMAGE_NAME not found! pulling johnwanzi/onekey:latest..."
-    docker pull johnwanzi/onekey:latest
-    docker tag johnwanzi/onekey:latest "$IMAGE_NAME"
+    echo "$IMAGE_NAME not found! pulling johnwanzi/onekey-emulator:latest..."
+    docker pull johnwanzi/onekey-emulator:latest
+    docker tag johnwanzi/onekey-emulator:latest "$IMAGE_NAME"
 else
     echo "find $IMAGE_NAME"
 fi
