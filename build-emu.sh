@@ -18,28 +18,6 @@ if [ -n "$1" ] && [ "$1" != "pro-emu" ] && [ "$1" != "1s-emu" ]; then
     return 1 2>/dev/null || exit 1
 fi
 
-# If the system is Linux, check if xhost is installed, install if not, and enable xhost for Docker
-if [ "$(uname)" = "Linux" ]; then
-    if ! command -v xhost > /dev/null 2>&1; then
-        echo "xhost not found, installing..."
-        if command -v apt-get > /dev/null 2>&1; then
-            sudo apt-get update && sudo apt-get install -y x11-xserver-utils
-        elif command -v yum > /dev/null 2>&1; then
-            sudo yum install -y xorg-x11-server-utils
-        else
-            echo "No supported package manager found for installing xhost." >&2
-            return 1 2>/dev/null || exit 1
-        fi
-    fi
-    echo "Enabling xhost for Docker..."
-    xhost +local:docker
-fi
-
-# If the system is macOS, add a TODO
-# if [ "$(uname)" = "Darwin" ]; then
-#     # TODO: Add macOS-specific logic here if needed
-# fi
-
 # Check the first argument
 if [ "$1" = "pro-emu" ]; then
     if [ ! -d "firmware-pro" ]; then
@@ -62,10 +40,38 @@ else
     echo "find $IMAGE_NAME"
 fi
 
+# If the system is Linux, check if xhost is installed, if true, enable xhost for Docker
+if [ "$(uname)" = "Linux" ]; then
+    # check DISPLAY environment variable, if not set, set it to :0
+    if [ -z "$DISPLAY" ]; then
+        export DISPLAY=:0
+    fi
+
+    if ! command -v xhost > /dev/null 2>&1; then
+        echo "xhost not found, installing..."
+        if command -v apt-get > /dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y x11-xserver-utils
+        elif command -v yum > /dev/null 2>&1; then
+            sudo yum install -y xorg-x11-server-utils
+        else
+            echo "No supported package manager found for installing xhost." >&2
+            return 1 2>/dev/null || exit 1
+        fi
+    fi
+    echo "Enabling xhost for Docker..."
+    xhost +local:docker
+fi
+
+# If the system is macOS, add a TODO
+# if [ "$(uname)" = "Darwin" ]; then
+#     # TODO: Add macOS-specific logic here if needed
+# fi
+
 # Run interactive Docker container with X11 forwarding and current directory mounted
 docker run -it --rm \
   --env DISPLAY=$DISPLAY \
   --env XAUTHORITY=$XAUTHORITY \
+  -e XDG_RUNTIME_DIR=/tmp/$(id -u)-runtime-dir \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v $(pwd):/home \
   --privileged --network=host "$IMAGE_NAME" bash -c \
