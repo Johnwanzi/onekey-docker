@@ -98,7 +98,7 @@ build_pro_emu() {
         --privileged --network=host "$IMAGE_NAME" bash -c \
         "source \$HOME/.cargo/env && \
         cd /home/$REPO_PATH && \
-        git config --global --add safe.directory /home/$REPO_PATH && \
+        git config --global --add safe.directory '*' && \
         git lfs pull && git lfs checkout && \
         cd / && \
         poetry run make -C /home/$REPO_PATH/core build_unix && \
@@ -112,7 +112,7 @@ build_pro_emu() {
         --privileged --network=host "$IMAGE_NAME" bash -c \
         "source \$HOME/.cargo/env && \
         cd /home/$REPO_PATH && \
-        git config --global --add safe.directory /home/$REPO_PATH && \
+        git config --global --add safe.directory '*' && \
         git lfs pull && git lfs checkout && \
         cd / && \
         poetry run make -C /home/$REPO_PATH/core build_unix && \
@@ -135,11 +135,35 @@ build_1s_emu() {
     REPO_PATH="firmware-classic1s"
 
     if [ "$(uname)" = "Linux" ]; then
-        # todo
-        echo "Linux"
+        docker run -it --rm \
+        --env DISPLAY=$DISPLAY \
+        --env XAUTHORITY=$XAUTHORITY \
+        -e XDG_RUNTIME_DIR=/tmp/$(id -u)-runtime-dir \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v $(pwd):/home \
+        --privileged --network=host "$IMAGE_NAME" bash -c \
+        "source \$HOME/.cargo/env && \
+        cd /home/$REPO_PATH && \
+        git config --global --add safe.directory '*' && \
+        cd / && \
+        export EMULATOR=1 DEBUG_LINK=0 && \
+        poetry run make -C /home/$REPO_PATH/legacy build_emu && \
+        ./home/$REPO_PATH/legacy/firmware/onekey_emu.elf\
+        exec bash"
     elif [ "$(uname)" = "Darwin" ]; then
-        # todo
-        echo "Darwin"
+        docker run -it --rm \
+        -e DISPLAY=host.docker.internal:0 \
+        -e XDG_RUNTIME_DIR=/tmp/$(id -u)-runtime-dir \
+        -v $(pwd):/home \
+        --privileged --network=host "$IMAGE_NAME" bash -c \
+        "source \$HOME/.cargo/env && \
+        cd /home/$REPO_PATH && \
+        git config --global --add safe.directory '*' && \
+        cd / && \
+        export EMULATOR=1 DEBUG_LINK=0 && \
+        poetry run make -C /home/$REPO_PATH/legacy build_emu && \
+        ./home/$REPO_PATH/legacy/firmware/onekey_emu.elf\
+        exec bash"
     fi
 }
 
