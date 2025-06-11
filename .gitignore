@@ -1,0 +1,17 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore build artifacts
+build/
+dist/
+*.egg-info/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore environment files
+.env 
