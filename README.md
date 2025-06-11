@@ -9,26 +9,21 @@ This folder contains scripts and helper files for running hardware wallet emulat
 ## Setup
 
 ### Prerequisites
+the following jobs have already been handled in the build-emu.sh script, so developers do not need to worry about them.
 - Docker
-- (macOS only) [XQuartz](https://www.xquartz.org/) for X11 display
-- (Linux only) xhost and X11 server
+- macOS host
+   - [XQuartz](https://www.xquartz.org/) for X11 display
+   - Make sure `xhost + 127.0.0.1` is set.
+- Linux host
+   - install xhost and X11 server.
+   - Make sure `xhost +local:docker` is enabled.
+
 
 ## Usage
 
-### Linux
-1. Ensure your X11 server is running and `xhost +local:docker` is enabled.
-2. Run the emulator script:
+### Linux && macOS
+1. Support compile/run emulator of `firmware-pro` and `firmware-classic1s` 
    ```bash
-   bash build-emu.sh pro-emu
-   # or
-   bash build-emu.sh 1s-emu
-   ```
-
-### macOS
-1. Install and start XQuartz. In XQuartz preferences, enable "Allow connections from network clients".
-2. In a terminal, run:
-   ```bash
-   xhost + 127.0.0.1
    bash build-emu.sh pro-emu
    # or
    bash build-emu.sh 1s-emu
