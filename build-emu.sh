@@ -2,7 +2,11 @@
 
 # set -e -o pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")"
+if [ -n "$BASH_SOURCE" ]; then
+  cd "$(dirname "${BASH_SOURCE[0]}")"
+else
+  cd "$(dirname "$0")"
+fi
 
 IMAGE_NAME="onekey-emulator:latest"
 REPO_PATH=""
