@@ -1,6 +1,15 @@
 #!/bin/sh
 
-# set -e -o pipefail
+# Default image name
+SRC_IMAGE_NAME="johnwanzi/onekey-emu:latest"
+IMAGE_NAME="onekey-emu:latest"
+REPO_PATH=""
+EMU_TYPE=""
+X11_ENABLED=0
+
+# Ports for VNC mode
+VNC_WEBSOCKET_PORT=6088
+VNC_DEV_UDP_PORT=54395
 
 if [ -n "$BASH_SOURCE" ]; then
   cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -8,26 +17,39 @@ else
   cd "$(dirname "$0")"
 fi
 
-IMAGE_NAME="onekey-emulator:latest"
-REPO_PATH=""
+# Argument parsing
+for arg in "$@"; do
+  case $arg in
+    pro-emu|1s-emu)
+      if [ -n "$EMU_TYPE" ]; then
+        echo "Error: Only one of 'pro-emu' or '1s-emu' can be specified." >&2
+        return 1 2>/dev/null || exit 1
+      fi
+      EMU_TYPE="$arg"
+      ;;
+    --x11)
+      X11_ENABLED=1
+      ;;
+    *)
+      echo "Usage: $0 [pro-emu|1s-emu] [--x11]" >&2
+      return 1 2>/dev/null || exit 1
+      ;;
+  esac
+done
 
-if [ "$#" -gt 1 ]; then
-    echo "Usage: $0 [pro-emu] [1s-emu]" >&2
-    return 1 2>/dev/null || exit 1
-fi
-
-if [ -n "$1" ] && [ "$1" != "pro-emu" ] && [ "$1" != "1s-emu" ]; then
-    echo "Error: argument must be 'pro-emu', '1s-emu'." >&2
-    return 1 2>/dev/null || exit 1
+if [ -z "$EMU_TYPE" ]; then
+  echo "Usage: $0 [pro-emu|1s-emu] [--x11]" >&2
+  return 1 2>/dev/null || exit 1
 fi
 
 # Check if IMAGE_NAME image exists
 if ! docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
-    echo "$IMAGE_NAME not found! pulling johnwanzi/onekey-emulator:latest..."
-    docker pull johnwanzi/onekey-emulator:latest
-    docker tag johnwanzi/onekey-emulator:latest "$IMAGE_NAME"
+    echo "$IMAGE_NAME not found! pulling $SRC_IMAGE_NAME..."
+    docker pull "$SRC_IMAGE_NAME"
+    docker tag "$SRC_IMAGE_NAME" "$IMAGE_NAME"
+    docker rmi "$SRC_IMAGE_NAME"
 else
-    echo "find $IMAGE_NAME"
+    echo "Found $IMAGE_NAME"
 fi
 
 # function to configure environment
@@ -55,27 +77,13 @@ env_config() {
     fi
 
     if [ "$(uname)" = "Darwin" ]; then
-        # Check if XQuartz is installed, install if not
-        if ! [ -d "/Applications/Utilities/XQuartz.app" ]; then
-            echo "XQuartz not found, installing via Homebrew..."
-            brew install --cask xquartz
-        else
-            echo "XQuartz is already installed."
-        fi
-
-        # Allow connections from network clients
-        defaults write org.xquartz.X11 nolisten_tcp -bool false
-
-        # Restart XQuartz
-        killall XQuartz 2>/dev/null
-        open -a XQuartz
-
-        xhost + 127.0.0.1
+        echo "X11 has compatible problems on macOS, please use VNC to connect to the emulator."
+        return 1 2>/dev/null || exit 1
     fi
 }
 
 # function to build pro emulator
-build_pro_emu() {
+build_pro_emu_x11() {
     # check firmware-pro repository
     if [ ! -d "firmware-pro" ]; then
         echo "firmware-pro directory not found, cloning..."
@@ -105,24 +113,13 @@ build_pro_emu() {
         poetry run /home/$REPO_PATH/core/emu.py && \
         exec bash"
     elif [ "$(uname)" = "Darwin" ]; then
-        docker run -it --rm \
-        -e DISPLAY=host.docker.internal:0 \
-        -e XDG_RUNTIME_DIR=/tmp/$(id -u)-runtime-dir \
-        -v $(pwd):/home \
-        --privileged --network=host "$IMAGE_NAME" bash -c \
-        "source \$HOME/.cargo/env && \
-        cd /home/$REPO_PATH && \
-        git config --global --add safe.directory '*' && \
-        git lfs pull && git lfs checkout && \
-        cd / && \
-        poetry run make -C /home/$REPO_PATH/core build_unix && \
-        poetry run /home/$REPO_PATH/core/emu.py && \
-        exec bash"
+        echo "X11 has compatible problems on macOS, please use VNC to connect to the emulator."
+        return 1 2>/dev/null || exit 1
     fi
 }
 
 # function to build 1s emulator
-build_1s_emu() {
+build_1s_emu_x11() {
     # check firmware-classic1s repository
     if [ ! -d "firmware-classic1s" ]; then
         echo "firmware-classic1s directory not found."
@@ -151,27 +148,81 @@ build_1s_emu() {
         ./home/$REPO_PATH/legacy/firmware/onekey_emu.elf\
         exec bash"
     elif [ "$(uname)" = "Darwin" ]; then
-        docker run -it --rm \
-        -e DISPLAY=host.docker.internal:0 \
+        echo "X11 has compatible problems on macOS, please use VNC to connect to the emulator."
+        return 1 2>/dev/null || exit 1
+    fi
+}
+
+# function to build pro emulator using VNC
+build_pro_emu_vnc() {
+    # check firmware-pro repository
+    if [ ! -d "firmware-pro" ]; then
+        echo "firmware-pro directory not found, cloning..."
+        git clone --recursive https://github.com/OneKeyHQ/firmware-pro.git
+        cd firmware-pro
+        git checkout emulator
+        git submodule update --init --recursive
+        cd ..
+    fi
+    REPO_PATH="firmware-pro"
+
+    docker run -it --rm \
+        -e REPO_PATH=$REPO_PATH \
+        -p $VNC_WEBSOCKET_PORT:6080 \
+        -p $VNC_DEV_UDP_PORT:54395 \
+        -e DISPLAY=$DISPLAY \
         -e XDG_RUNTIME_DIR=/tmp/$(id -u)-runtime-dir \
-        -v $(pwd):/home \
-        --privileged --network=host "$IMAGE_NAME" bash -c \
+        -v $(pwd):/home "$IMAGE_NAME" bash -c \
+        "source \$HOME/.cargo/env && \
+        cd /home/$REPO_PATH && \
+        git config --global --add safe.directory '*' && \
+        git lfs pull && git lfs checkout && \
+        cd / && \
+        poetry run make -C /home/$REPO_PATH/core build_unix && \
+        DISPLAY=:1 /startup-pro-emu.sh && \
+        exec bash"
+}
+
+# function to build 1s emulator using VNC
+build_1s_emu_vnc() {
+    # check firmware-classic1s repository
+    if [ ! -d "firmware-classic1s" ]; then
+        echo "firmware-classic1s directory not found."
+        git clone --recursive https://github.com/OneKeyHQ/firmware-classic1s.git
+        cd firmware-classic1s
+        git checkout emulator
+        git submodule update --init --recursive
+        cd ..
+    fi
+    REPO_PATH="firmware-classic1s"
+
+    docker run -it --rm \
+        -e REPO_PATH=$REPO_PATH \
+        -p $VNC_WEBSOCKET_PORT:6080 \
+        -p $VNC_DEV_UDP_PORT:54395 \
+        -v $(pwd):/home "$IMAGE_NAME" bash -c \
         "source \$HOME/.cargo/env && \
         cd /home/$REPO_PATH && \
         git config --global --add safe.directory '*' && \
         cd / && \
         export EMULATOR=1 DEBUG_LINK=0 && \
         poetry run make -C /home/$REPO_PATH/legacy build_emu && \
-        ./home/$REPO_PATH/legacy/firmware/onekey_emu.elf\
+        DISPLAY=:1 /startup-1s-emu.sh && \
         exec bash"
-    fi
 }
 
-env_config
-
-# Check the first argument
-if [ "$1" = "pro-emu" ]; then
-    build_pro_emu
-elif [ "$1" = "1s-emu" ]; then
-    build_1s_emu
+if [ "$X11_ENABLED" = "1" ]; then
+    env_config
+    # Check the first argument
+    if [ "$EMU_TYPE" = "pro-emu" ]; then
+        build_pro_emu_x11
+    elif [ "$EMU_TYPE" = "1s-emu" ]; then
+        build_1s_emu_x11
+    fi
+else
+    if [ "$EMU_TYPE" = "pro-emu" ]; then
+        build_pro_emu_vnc
+    elif [ "$EMU_TYPE" = "1s-emu" ]; then
+        build_1s_emu_vnc
+    fi
 fi
