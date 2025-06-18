@@ -1,15 +1,15 @@
 #!/bin/sh
 
 # Default image name
-SRC_IMAGE_NAME="johnwanzi/onekey-emu:latest"
-IMAGE_NAME="onekey-emu:latest"
+SRC_IMAGE_NAME="johnwanzi/ok-emu-new:latest"
+IMAGE_NAME="ok-emu-new:latest"
 REPO_PATH=""
 EMU_TYPE=""
 X11_ENABLED=0
 
 # Ports for VNC mode
 VNC_WEBSOCKET_PORT=6088
-VNC_DEV_UDP_PORT=54395
+VNC_ONEKEY_BRIDGE_PORT=21333
 
 if [ -n "$BASH_SOURCE" ]; then
   cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -169,7 +169,7 @@ build_pro_emu_vnc() {
     docker run -it --rm \
         -e REPO_PATH=$REPO_PATH \
         -p $VNC_WEBSOCKET_PORT:6080 \
-        -p $VNC_DEV_UDP_PORT:54395 \
+        -p $VNC_ONEKEY_BRIDGE_PORT:21333 \
         -e DISPLAY=$DISPLAY \
         -e XDG_RUNTIME_DIR=/tmp/$(id -u)-runtime-dir \
         -v $(pwd):/home "$IMAGE_NAME" bash -c \
@@ -199,7 +199,7 @@ build_1s_emu_vnc() {
     docker run -it --rm \
         -e REPO_PATH=$REPO_PATH \
         -p $VNC_WEBSOCKET_PORT:6080 \
-        -p $VNC_DEV_UDP_PORT:54395 \
+        -p $VNC_ONEKEY_BRIDGE_PORT:21333 \
         -v $(pwd):/home "$IMAGE_NAME" bash -c \
         "source \$HOME/.cargo/env && \
         cd /home/$REPO_PATH && \
