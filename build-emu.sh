@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # Default image name
-SRC_IMAGE_NAME="johnwanzi/ok-emu-new:latest"
-IMAGE_NAME="ok-emu-new:latest"
+SRC_IMAGE_NAME="johnwanzi/ok-emu:latest"
+IMAGE_NAME="ok-emu:latest"
 REPO_PATH=""
 EMU_TYPE=""
 X11_ENABLED=0
